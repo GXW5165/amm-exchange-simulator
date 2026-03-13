@@ -31,18 +31,23 @@ class Blockchain:
     # 任务 1：实现挖矿逻辑 (PoW)
     def mine_block(self, new_block) -> None:
         # TODO 完成该函数
-
+        while not new_block.hash.startswith('0' * self.difficulty):
+            new_block.nonce += 1
+            new_block.hash = new_block.calculate_hash()
         print(f"Block Mined! Hash: {new_block.hash}")
-        pass
+        self.chain.append(new_block)
 
     # 任务 2：实现链的完整性验证
     def is_chain_valid(self) -> bool:
         for i in range(1, len(self.chain)):
             # TODO 完成该函数
             # 检查点 1：当前区块的哈希值是否重新计算后一致？
-            
+            if self.chain[i].hash != self.chain[i].calculate_hash():
+                return False
+
             # 检查点 2：当前区块的 previous_hash 是否指向上一个区块的真实哈希？
-            pass
+            if self.chain[i].previous_hash != self.chain[i - 1].hash:
+                return False
         return True
 
 if __name__ == "__main__":

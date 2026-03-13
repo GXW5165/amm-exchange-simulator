@@ -21,6 +21,6 @@ def test_tamper_detection():
     print("✓ 防篡改测试通过")
 
 if __name__ == "__main__":
-    print("姓名+学号")
+    print("关翔文+241275014")
     test_mining_basic()
     test_tamper_detection()
