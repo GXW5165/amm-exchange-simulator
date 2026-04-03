@@ -1,137 +1,86 @@
-# AMM Exchange Simulator
+﻿# AMM Exchange Simulator (Offline MVP)
 
-## Overview
+## 1. Project Overview
+This project is a minimal, offline Automated Market Maker (AMM) simulator for a single token pair (Token X / Token Y). It implements the constant product model `x * y = k`, supports swaps, liquidity provision/removal, slippage, fees, and a simple discrete-event simulation engine. The system is fully local and runs on Python 3.10+.
 
-This project implements a simulation system for an Automated Market Maker (AMM)-based exchange using Python.
-It models decentralized trading mechanisms based on the constant product formula and simulates token swaps, liquidity provision, and price impact.
-
-The project aims to provide an intuitive understanding of DeFi exchange mechanics and market behavior.
-
----
-
-## Features
-
-* **AMM Pricing Model**
-  Implements the constant product invariant:
-  [
-  x \cdot y = k
-  ]
-
-* **Token Swap Simulation**
-  Calculates output tokens dynamically based on pool reserves.
-
-* **Liquidity Pool Management**
-  Add and remove liquidity with updated reserve tracking.
-
-* **Slippage & Price Impact Analysis**
-  Demonstrates how trade size affects execution price.
-
-* **Interactive Simulation**
-  Command-line interface for user interaction.
-
----
-
-## Tech Stack
-
-* **Language:** Python 3
-* **Core Concepts:** Object-Oriented Programming, Simulation Modeling
-* **Libraries (optional):**
-
-  * numpy (for numerical computation)
-  * matplotlib (for visualization)
-
----
-
-## Project Structure
-
-```id="cz0crr"
-amm-exchange-simulator/
-├── src/                # Core logic
-│   ├── amm.py          # AMM model (x*y=k)
-│   ├── exchange.py     # Trading engine
-│   ├── user.py         # User actions
-│   └── main.py         # Entry point
-├── data/               # Simulation data
-├── requirements.txt    # Dependencies
+## 2. Directory Structure
+```
+amm_exchange_simulator/
+├── main.py
+├── requirements.txt
 ├── README.md
+├── configs/
+│   └── default.yaml
+├── data/
+│   └── output/
+│       └── logs/
+├── src/
+│   ├── domain/
+│   │   ├── pool.py
+│   │   ├── user.py
+│   │   ├── lp_position.py
+│   │   ├── metrics.py
+│   │   └── exceptions.py
+│   ├── simulator/
+│   │   ├── event.py
+│   │   ├── event_queue.py
+│   │   └── engine.py
+│   ├── infrastructure/
+│   │   ├── config_loader.py
+│   │   └── logger.py
+│   └── interface/
+│       └── cli.py
+└── tests/
+    ├── test_pool.py
+    ├── test_liquidity.py
+    └── test_simulator.py
 ```
 
----
-
-## Installation
-
-### 1. Clone the repository
-
-```bash id="e2uxpi"
-git clone https://github.com/your-username/amm-exchange-simulator.git
-cd amm-exchange-simulator
-```
-
-### 2. (Optional) Create a virtual environment
-
-```bash id="y6hq4r"
-conda create -n amm-env python=3.10
-conda activate amm-env
-```
-
-### 3. Install dependencies
-
-```bash id="j89u4d"
+## 3. Environment Setup
+```bash
+python -m venv .venv
+.\.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
----
-
-## How to Run
-
-```bash id="f6mt01"
-python src/main.py
+## 4. How to Run
+```bash
+python main.py
 ```
 
----
+## 5. CLI Usage
+Menu options:
+1. Use default config to run simulation
+2. Manually initialize pool
+3. Execute a swap
+4. Add liquidity
+5. Remove liquidity
+6. View pool status
+7. View user status
+8. Exit
 
-## Example
+## 6. YAML Config Notes
+`configs/default.yaml` contains:
+- `initial_reserve_x`, `initial_reserve_y`: initial pool reserves
+- `fee_rate`: default 0.003
+- `seed`: deterministic seed placeholder
+- `users`: user balances
+- `events`: discrete events list
+- `log_path`: output CSV path
 
-Input:
+Event payloads:
+- swap: `user_id`, `direction` (`x_to_y` or `y_to_x`), `amount_in`
+- add_liquidity: `user_id`, `amount_x`, `amount_y`
+- remove_liquidity: `user_id`, `lp_share`
 
-```id="v1avku"
-Swap 100 TokenA to TokenB
-```
+## 7. Output Example
+Simulation writes CSV logs with fields:
+`event_id, timestamp, user_id, event_type, direction, amount_in, amount_out, fee, reserve_x, reserve_y, spot_price, execution_price, slippage_pct, lp_total_shares`
 
-Output:
+Execution price is defined as `y per x`. For `x_to_y`, `execution_price = amount_out / amount_in`. For `y_to_x`, `execution_price = amount_in / amount_out`. Slippage is computed against the spot price `reserve_y / reserve_x`.
 
-```id="kj36u0"
-Received: 95 TokenB
-Price Impact: 4.8%
-```
+## 8. Future Extensions (Not Implemented in P0)
+- P1: multi-asset pools, arbitrageur, backtesting, visualization
+- P2: concentrated liquidity (Uniswap V3), advanced reporting, concurrency
 
----
-
-## Key Concepts
-
-* Automated Market Maker (AMM)
-* Constant Product Market (x * y = k)
-* Liquidity Pools
-* Slippage and Price Impact
-
----
-
-## Future Improvements
-
-* Fee mechanism simulation
-* Multi-asset pools
-* Visualization of price curves
-* Backtesting framework
-
----
-
-## Author
-
-* Your Name
-
----
-
-## License
-
-This project is for educational purposes.
-****
+This MVP focuses strictly on P0 features only.
