@@ -1,0 +1,44 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from src.domain.user import User
+
+
+@dataclass
+class AppConfig:
+    initial_reserve_x: float = 0.0
+    initial_reserve_y: float = 0.0
+    fee_rate: float = 0.003
+    seed: int | None = None
+    log_path: str = "data/output/logs/simulation.csv"
+    users: dict[str, User] = field(default_factory=dict)
+    events: list[dict[str, Any]] = field(default_factory=list)
+
+
+def load_config(path: str | Path) -> AppConfig:
+    config_path = Path(path)
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+
+    users: dict[str, User] = {}
+    for user_id, user_data in (data.get("users") or {}).items():
+        users[user_id] = User(
+            user_id=user_id,
+            balance_x=float(user_data.get("balance_x", 0.0)),
+            balance_y=float(user_data.get("balance_y", 0.0)),
+            lp_shares=float(user_data.get("lp_shares", 0.0)),
+        )
+
+    return AppConfig(
+        initial_reserve_x=float(data.get("initial_reserve_x", 0.0)),
+        initial_reserve_y=float(data.get("initial_reserve_y", 0.0)),
+        fee_rate=float(data.get("fee_rate", 0.003)),
+        seed=data.get("seed"),
+        log_path=str(data.get("log_path", "data/output/logs/simulation.csv")),
+        users=users,
+        events=list(data.get("events") or []),
+    )
