@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+import traceback
 
+from src.application.simulation_runner import SimulationRunner
 from src.domain.pool import Pool
 from src.domain.user import User
 from src.infrastructure.config_loader import load_config
 from src.infrastructure.logger import get_logger
-from src.simulator.engine import SimulatorEngine, build_events
+from src.simulator.engine import SimulatorEngine
+from src.simulator.scenario_builder import build_events
 
 
 class AMMCLI:
@@ -17,6 +20,7 @@ class AMMCLI:
         self.pool: Pool | None = None
         self.users: dict[str, User] = {}
         self.engine = SimulatorEngine()
+        self.runner = SimulationRunner(self.root_dir)
         self._load_default_state()
 
     def _load_default_state(self) -> None:
@@ -33,26 +37,31 @@ class AMMCLI:
     def run(self) -> None:
         while True:
             self._print_menu()
-            choice = input("请选择操作: ").strip()
-            if choice == "1":
-                self.run_default_simulation()
-            elif choice == "2":
-                self.manual_initialize_pool()
-            elif choice == "3":
-                self.execute_swap()
-            elif choice == "4":
-                self.add_liquidity()
-            elif choice == "5":
-                self.remove_liquidity()
-            elif choice == "6":
-                self.view_pool_status()
-            elif choice == "7":
-                self.view_user_status()
-            elif choice == "8":
-                print("已退出")
+            choice = input("Select an option: ").strip()
+            if choice == "8":
+                print("Exit.")
                 break
-            else:
-                print("无效选择")
+
+            actions = {
+                "1": self.run_default_simulation,
+                "2": self.manual_initialize_pool,
+                "3": self.execute_swap,
+                "4": self.add_liquidity,
+                "5": self.remove_liquidity,
+                "6": self.view_pool_status,
+                "7": self.view_user_status,
+            }
+
+            action = actions.get(choice)
+            if action is None:
+                print("Invalid option.")
+                continue
+
+            try:
+                action()
+            except Exception as exc:
+                print(f"Operation failed: {exc}")
+                traceback.print_exc()
 
     def _print_menu(self) -> None:
         print("\nAMM Exchange Simulator")
@@ -70,32 +79,40 @@ class AMMCLI:
             raise RuntimeError("Pool is not initialized")
         return self.pool
 
-    def _get_user(self, user_id: str) -> User:
-        if user_id not in self.users:
-            self.users[user_id] = User(user_id=user_id)
-        return self.users[user_id]
-
     def run_default_simulation(self) -> None:
         if not self.config_path.exists():
-            print("找不到默认配置文件")
+            print("Default config file not found.")
             return
+
         config = load_config(self.config_path)
         self.pool = Pool(config.initial_reserve_x, config.initial_reserve_y, config.fee_rate)
         self.users = config.users
         self.engine = SimulatorEngine(self.pool, self.users)
-        events = build_events(config.events)
-        result = self.engine.run(events)
-        output_path = self.engine.export_csv(self.root_dir / config.log_path)
-        print(f"模拟完成，记录数: {len(result.records)}")
-        print(f"日志已写入: {output_path}")
+        artifacts = self.runner.run_from_config(config)
+        result = artifacts.result
+        summary = result.summary
+
+        print(f"Processed events: {summary.total_events}")
+        print(f"Swap events: {summary.swap_events}")
+        print(f"Liquidity events: {summary.liquidity_events}")
+        print(f"Total fees: {summary.total_fees:.6f}")
+        print(f"Average slippage (%): {summary.average_slippage_pct}")
+        print(f"Max slippage (%): {summary.max_slippage_pct}")
+        print(f"Impermanent loss (%): {summary.impermanent_loss_pct}")
+        print(f"Output CSV: {artifacts.csv_path}")
+        print(f"Output Summary: {artifacts.summary_path}")
+        for name, path in artifacts.plot_paths.items():
+            print(f"Plot {name}: {path}")
+        for warning in artifacts.warnings:
+            print(f"Warning: {warning}")
 
     def manual_initialize_pool(self) -> None:
-        reserve_x = self._prompt_float("请输入 Token X 初始储备: ")
-        reserve_y = self._prompt_float("请输入 Token Y 初始储备: ")
-        fee_rate = self._prompt_float("请输入手续费率(例如 0.003): ")
+        reserve_x = self._prompt_float("Token X reserve: ")
+        reserve_y = self._prompt_float("Token Y reserve: ")
+        fee_rate = self._prompt_float("Fee rate (e.g. 0.003): ")
         self.pool = Pool(reserve_x, reserve_y, fee_rate)
         self.engine = SimulatorEngine(self.pool, self.users)
-        print("池子已初始化")
+        print("Pool initialized.")
 
     def execute_swap(self) -> None:
         try:
@@ -103,6 +120,7 @@ class AMMCLI:
         except RuntimeError as exc:
             print(str(exc))
             return
+
         user_id = input("user_id: ").strip()
         direction = input("direction(x_to_y / y_to_x): ").strip()
         amount_in = self._prompt_float("amount_in: ")
@@ -117,7 +135,7 @@ class AMMCLI:
             self.engine.process_event(build_events([event])[0])
             print(f"Swap executed. Pool spot price: {pool.spot_price:.6f}")
         except Exception as exc:
-            print(f"操作失败: {exc}")
+            print(f"Execution failed: {exc}")
 
     def add_liquidity(self) -> None:
         try:
@@ -125,6 +143,7 @@ class AMMCLI:
         except RuntimeError as exc:
             print(str(exc))
             return
+
         user_id = input("user_id: ").strip()
         amount_x = self._prompt_float("amount_x: ")
         amount_y = self._prompt_float("amount_y: ")
@@ -137,9 +156,9 @@ class AMMCLI:
         }
         try:
             self.engine.process_event(build_events([event])[0])
-            print("已添加流动性")
+            print("Liquidity added.")
         except Exception as exc:
-            print(f"操作失败: {exc}")
+            print(f"Execution failed: {exc}")
 
     def remove_liquidity(self) -> None:
         try:
@@ -147,6 +166,7 @@ class AMMCLI:
         except RuntimeError as exc:
             print(str(exc))
             return
+
         user_id = input("user_id: ").strip()
         lp_share = self._prompt_float("lp_share: ")
         event = {
@@ -157,9 +177,9 @@ class AMMCLI:
         }
         try:
             self.engine.process_event(build_events([event])[0])
-            print("已移除流动性")
+            print("Liquidity removed.")
         except Exception as exc:
-            print(f"操作失败: {exc}")
+            print(f"Execution failed: {exc}")
 
     def view_pool_status(self) -> None:
         try:
@@ -167,6 +187,7 @@ class AMMCLI:
         except RuntimeError as exc:
             print(str(exc))
             return
+
         print(f"reserve_x: {pool.reserve_x:.6f}")
         print(f"reserve_y: {pool.reserve_y:.6f}")
         print(f"fee_rate: {pool.fee_rate:.6f}")
@@ -175,8 +196,9 @@ class AMMCLI:
 
     def view_user_status(self) -> None:
         if not self.users:
-            print("暂无用户")
+            print("No users loaded.")
             return
+
         for user in self.users.values():
             print(
                 f"{user.user_id}: balance_x={user.balance_x:.6f}, balance_y={user.balance_y:.6f}, lp_shares={user.lp_shares:.6f}"
@@ -187,7 +209,7 @@ class AMMCLI:
             try:
                 return float(input(prompt).strip())
             except ValueError:
-                print("请输入有效数字")
+                print("Please enter a valid number.")
 
 
 def main() -> None:

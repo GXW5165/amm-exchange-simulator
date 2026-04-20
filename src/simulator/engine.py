@@ -1,24 +1,19 @@
 from __future__ import annotations
 
-import csv
-from dataclasses import dataclass
+from copy import deepcopy
 from pathlib import Path
-from typing import Any
 
+from src.analytics.record import EventRecord
+from src.analytics.slippage import calculate_slippage_pct
 from src.domain.exceptions import InsufficientBalanceError, InsufficientLiquidityError, InvalidEventError, PoolNotInitializedError
-from src.domain.metrics import EventRecord
 from src.domain.pool import Pool
 from src.domain.user import User
+from src.infrastructure.csv_exporter import export_event_records
 
 from .event import Event, EventType
 from .event_queue import EventQueue
-
-
-@dataclass
-class SimulationResult:
-    records: list[EventRecord]
-    pool: Pool
-    users: dict[str, User]
+from .result import SimulationResult
+from .scenario_builder import build_events
 
 
 class SimulatorEngine:
@@ -27,6 +22,8 @@ class SimulatorEngine:
         self.users = users or {}
         self.event_queue = EventQueue()
         self.records: list[EventRecord] = []
+        self.initial_pool = deepcopy(pool) if pool is not None else None
+        self.initial_users = deepcopy(self.users)
 
     def ensure_user(self, user_id: str) -> User:
         if user_id not in self.users:
@@ -49,7 +46,14 @@ class SimulatorEngine:
         if self.pool is None:
             raise PoolNotInitializedError("Pool is not initialized")
 
-        return SimulationResult(records=self.records, pool=self.pool, users=self.users)
+        initial_pool = deepcopy(self.initial_pool) if self.initial_pool is not None else deepcopy(self.pool)
+        return SimulationResult(
+            records=self.records,
+            pool=self.pool,
+            users=self.users,
+            initial_pool=initial_pool,
+            initial_users=deepcopy(self.initial_users),
+        )
 
     def process_event(self, event: Event) -> EventRecord:
         if self.pool is None:
@@ -84,7 +88,8 @@ class SimulatorEngine:
 
         spot_price = self.pool.spot_price
         execution_price = amount_out / amount_in if amount_in else None
-        slippage_pct = None if spot_price in (0.0, float("inf")) or execution_price is None else abs(execution_price - spot_price) / spot_price * 100
+        slippage_pct = calculate_slippage_pct(spot_price, execution_price)
+
         return self._build_record(
             event=event,
             user_id=user.user_id,
@@ -117,8 +122,6 @@ class SimulatorEngine:
             amount_out=consumed_y,
             fee=0.0,
             spot_price=self.pool.spot_price,
-            execution_price=None,
-            slippage_pct=None,
         )
 
     def _process_remove_liquidity(self, event: Event, user: User) -> EventRecord:
@@ -139,8 +142,6 @@ class SimulatorEngine:
             amount_out=amount_x + amount_y,
             fee=0.0,
             spot_price=self.pool.spot_price,
-            execution_price=None,
-            slippage_pct=None,
         )
 
     def _build_record(
@@ -175,29 +176,4 @@ class SimulatorEngine:
         )
 
     def export_csv(self, path: str | Path) -> Path:
-        output_path = Path(path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        fieldnames = list(EventRecord(0, 0, "", "").to_csv_row().keys())
-        with output_path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=fieldnames)
-            writer.writeheader()
-            for record in self.records:
-                writer.writerow(record.to_csv_row())
-        return output_path
-
-
-def build_events(raw_events: list[dict[str, Any]]) -> list[Event]:
-    events: list[Event] = []
-    for index, raw_event in enumerate(raw_events, start=1):
-        event_type = EventType(raw_event["event_type"])
-        payload = {key: value for key, value in raw_event.items() if key not in {"timestamp", "event_type", "user_id"}}
-        events.append(
-            Event(
-                timestamp=float(raw_event.get("timestamp", index)),
-                event_id=index,
-                event_type=event_type,
-                user_id=str(raw_event["user_id"]),
-                payload=payload,
-            )
-        )
-    return events
+        return export_event_records(self.records, path)

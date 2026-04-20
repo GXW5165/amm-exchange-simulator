@@ -1,293 +1,436 @@
-﻿# AMM Exchange Simulator
+# AMM Exchange Simulator
 
-## 📌 项目简介
+## 项目简介
 
-本项目是一个基于 **Python** 实现的 **AMM（Automated Market Maker）交易所仿真系统**，用于模拟恒定乘积模型（x · y = k）下的交易机制、流动性管理过程以及相关风险指标。
+这是一个基于 Python 的 AMM 交易所仿真系统，用于模拟恒定乘积做市模型 `x * y = k` 下的交易、流动性增减和指标分析流程。
 
-系统采用 **离散事件驱动仿真（Discrete Event Simulation）** 的方式，支持交易、流动性添加与移除、手续费分配等行为，并输出滑点、无常损失、LP收益等关键分析指标。
+项目当前已经具备以下完整链路：
 
-本项目为课程设计项目，重点在于：
+- 配置加载
+- 离散事件构造与调度
+- AMM 交易与 LP 状态更新
+- 滑点、无常损失、用户收益统计
+- CSV 日志导出
+- JSON 摘要导出
+- PNG 图表导出
+- CLI 交互入口
 
-* AMM数学模型的工程实现
-* 软件工程结构设计（分层架构）
-* 仿真系统构建与实验分析
+## 当前实现范围
 
-📖 设计依据：概要设计说明书 
+### 已实现
 
----
+- 恒定乘积池 `Pool`
+- 双向兑换 `x_to_y / y_to_x`
+- 手续费计算
+- 添加/移除流动性
+- 多用户仿真
+- 离散事件驱动执行
+- 滑点统计
+- 无常损失统计
+- 用户总收益统计
+- CSV/JSON/PNG 输出
+- `pytest` 单元测试
 
-## 🎯 项目目标
+### 后续可扩展
 
-* 实现恒定乘积 AMM 核心逻辑
-* 构建离散事件仿真引擎
-* 支持多场景仿真（基础 / 冲击 / 对比）
-* 输出关键指标（滑点 / 无常损失 / 收益）
-* 提供 CLI 交互与可视化分析能力
+- 多池仿真
+- 套利行为模拟
+- Web 界面
+- 历史数据回测
+- 多种 AMM 模型对比
 
----
+## 架构设计
 
-## 🚀 核心功能
+项目现在采用更贴近代码实现的五层结构：
 
-### ✅ P0（必须实现）
-
-* 恒定乘积模型交易（x · y = k）
-* Token A / Token B 双向兑换
-* 手续费计算与累计分配
-* 流动性添加与移除（LP机制）
-* 滑点计算
-* 无常损失（Impermanent Loss）计算
-* 离散事件驱动仿真
-* CLI命令行交互系统
-* 仿真日志记录（CSV）
-
----
-
-### ⚡ P1（增强功能）
-
-* 数据可视化（价格 / 滑点 / 收益曲线）
-* 多用户仿真
-* 极端场景模拟（大额冲击）
-* 多参数对比实验
-* 单元测试支持（pytest）
-
----
-
-### 🌟 P2（扩展功能）
-
-* Web界面（Streamlit / React）
-* 套利行为模拟
-* 历史数据回测
-* 多AMM模型对比
-
----
-
-## 🧠 系统架构设计
-
-系统采用 **分层架构（Layered Architecture）**：
-
-```
-UI Layer (CLI / Web)
-        ↓
-Simulation Layer (事件调度)
-        ↓
-Core Business Layer (AMM逻辑)
-        ↓
-Support Layer (数据 / 日志 / 可视化)
+```text
+Interface Layer
+  -> Application Layer
+    -> Simulator Layer
+      -> Domain Layer
+        -> Infrastructure / Visualization / Analytics
 ```
 
-### 📦 模块划分
+### 1. Interface Layer
 
-* **核心业务层**
+负责用户交互和程序入口。
 
-  * AMMEngine（交易逻辑）
-  * Pool（资金池状态）
-  * LiquidityManager（流动性管理）
+- `main.py`
+- `src/interface/cli.py`
 
-* **仿真控制层**
+职责：
 
-  * Simulator（仿真流程）
-  * Event（事件模型）
+- 展示 CLI 菜单
+- 接收用户输入
+- 调用应用层执行默认仿真或手动操作
 
-* **指标计算层**
+### 2. Application Layer
 
-  * 滑点计算
-  * 无常损失计算
-  * 收益统计
+负责把配置、仿真执行和结果导出封装为一个完整用例。
 
-* **支撑层**
+- `src/application/simulation_runner.py`
 
-  * 数据管理（日志 / 配置 / 导出）
-  * 可视化（图表生成）
+职责：
 
-* **界面层**
+- 从配置构建仿真实例
+- 执行事件流
+- 导出 CSV
+- 导出 JSON 摘要
+- 导出 PNG 图表
 
-  * CLI交互
-  * Web扩展（可选）
+### 3. Simulator Layer
 
----
+负责离散事件调度和事件驱动执行。
 
-## 📂 项目结构（推荐）
+- `src/simulator/event.py`
+- `src/simulator/event_queue.py`
+- `src/simulator/scenario_builder.py`
+- `src/simulator/engine.py`
+- `src/simulator/result.py`
 
-```
+职责：
+
+- 定义事件模型
+- 构造事件序列
+- 逐个处理交易/加池/减池事件
+- 产出 `SimulationResult`
+
+### 4. Domain Layer
+
+负责核心业务规则和状态对象。
+
+- `src/domain/pool.py`
+- `src/domain/user.py`
+- `src/domain/lp_position.py`
+- `src/domain/exceptions.py`
+
+职责：
+
+- 管理池子储备
+- 管理用户余额与 LP 份额
+- 实现 AMM 数学逻辑
+- 抛出业务异常
+
+### 5. Analytics / Infrastructure / Visualization
+
+负责结果分析、数据导出和图表生成。
+
+Analytics:
+
+- `src/analytics/slippage.py`
+- `src/analytics/impermanent_loss.py`
+- `src/analytics/pnl.py`
+- `src/analytics/report.py`
+- `src/analytics/record.py`
+
+Infrastructure:
+
+- `src/infrastructure/config_loader.py`
+- `src/infrastructure/csv_exporter.py`
+- `src/infrastructure/summary_exporter.py`
+- `src/infrastructure/logger.py`
+
+Visualization:
+
+- `src/visualization/plotter.py`
+
+职责：
+
+- 计算平均/最大滑点
+- 计算无常损失
+- 汇总用户收益
+- 导出事件日志和摘要
+- 生成价格、滑点、收益图表
+
+## 目录结构
+
+```text
 amm-exchange-simulator/
-│
-├── src/
-│   ├── core/                 # 核心业务逻辑
-│   │   ├── pool.py
-│   │   ├── amm_engine.py
-│   │   └── liquidity.py
-│   │
-│   ├── simulation/           # 仿真引擎
-│   │   ├── simulator.py
-│   │   ├── event.py
-│   │   └── scheduler.py
-│   │
-│   ├── metrics/              # 指标计算
-│   │   ├── slippage.py
-│   │   └── impermanent_loss.py
-│   │
-│   ├── data/                 # 数据管理
-│   │   ├── config.py
-│   │   ├── logger.py
-│   │   └── exporter.py
-│   │
-│   ├── visualization/        # 可视化模块
-│   │   └── plotter.py
-│   │
-│   ├── cli/                  # 命令行接口
-│   │   └── main.py
-│
-├── config/                   # 配置文件
+├── configs/
 │   └── default.yaml
-│
-├── data/                     # 输出数据
-│   ├── logs/
-│   └── results/
-│
-├── tests/                    # 单元测试
-│
+├── src/
+│   ├── application/
+│   │   ├── __init__.py
+│   │   └── simulation_runner.py
+│   ├── analytics/
+│   │   ├── __init__.py
+│   │   ├── impermanent_loss.py
+│   │   ├── pnl.py
+│   │   ├── record.py
+│   │   ├── report.py
+│   │   └── slippage.py
+│   ├── domain/
+│   │   ├── exceptions.py
+│   │   ├── lp_position.py
+│   │   ├── metrics.py
+│   │   ├── pool.py
+│   │   └── user.py
+│   ├── infrastructure/
+│   │   ├── config_loader.py
+│   │   ├── csv_exporter.py
+│   │   ├── logger.py
+│   │   └── summary_exporter.py
+│   ├── interface/
+│   │   └── cli.py
+│   ├── simulator/
+│   │   ├── engine.py
+│   │   ├── event.py
+│   │   ├── event_queue.py
+│   │   ├── result.py
+│   │   └── scenario_builder.py
+│   └── visualization/
+│       ├── __init__.py
+│       └── plotter.py
+├── tests/
+│   ├── test_analytics.py
+│   ├── test_liquidity.py
+│   ├── test_pool.py
+│   ├── test_runner.py
+│   ├── test_simulator.py
+│   └── test_visualization.py
+├── main.py
 ├── requirements.txt
-├── main.py                   # 程序入口
 └── README.md
 ```
 
----
+## 环境要求
 
-## ⚙️ 环境要求
+- Python >= 3.10
+- 推荐使用 Conda 虚拟环境
 
-* Python ≥ 3.10
+你的当前环境：
 
----
+- 虚拟环境路径：`D:\miniconda3\envs\jrrg`
 
-## 📦 依赖安装
+## 依赖安装
 
-```bash
-pip install -r requirements.txt
+```powershell
+D:\miniconda3\envs\jrrg\python.exe -m pip install -r requirements.txt
 ```
 
-推荐依赖：
+## 配置文件说明
 
-* numpy
-* pandas
-* matplotlib / plotly
-* pyyaml
-* pytest
+默认配置文件路径：
 
----
+- `configs/default.yaml`
 
-## ▶️ 运行方式
+当前关键配置项：
 
-### 方式1：直接运行
+- `initial_reserve_x`：池子初始 X 储备
+- `initial_reserve_y`：池子初始 Y 储备
+- `fee_rate`：手续费率
+- `log_path`：CSV 事件日志输出路径
+- `summary_path`：JSON 摘要输出路径
+- `plot_dir`：PNG 图表输出目录
+- `users`：初始用户资产
+- `events`：仿真事件序列
 
-```bash
-python main.py
+## 运行方式
+
+### 1. 启动 CLI
+
+```powershell
+D:\miniconda3\envs\jrrg\python.exe main.py
 ```
 
----
+### 2. 启动 Streamlit Web 界面
 
-### 方式2：指定配置文件
-
-```bash
-python main.py --config config/default.yaml
+```powershell
+D:\miniconda3\envs\jrrg\python.exe -m streamlit run streamlit_app.py
 ```
 
----
+启动后浏览器会打开一个本地页面，默认地址通常是：
 
-## 📊 输出内容
-
-运行后系统将生成：
-
-* 📄 CSV日志文件（交易 / LP操作）
-* 📈 统计指标（滑点 / 收益 / IL）
-* 📉 可视化图表（价格曲线等）
-
----
-
-## 🧪 示例功能
-
-* 单次交易模拟
-* 批量事件仿真
-* 极端市场冲击测试
-* 参数对比实验
-
----
-
-## 📐 核心数学模型
-
-### 恒定乘积模型
-
-```
-x · y = k
+```text
+http://localhost:8501
 ```
 
----
+### 3. 在 CLI 中执行默认仿真
 
-### 交易公式
+启动后输入：
 
+```text
+1
 ```
+
+默认仿真会自动执行完整流程：
+
+- 读取 `configs/default.yaml`
+- 执行事件流
+- 输出指标摘要
+- 导出 CSV
+- 导出 JSON
+- 导出 PNG 图表
+
+### 4. 在 Web 中执行默认仿真
+
+打开页面后：
+
+- 进入“默认配置”页签
+- 点击“运行默认配置”
+
+预期会看到：
+
+- 指标卡片
+- 事件记录表
+- 用户收益表
+- CSV / JSON 下载按钮
+- 三张图表
+
+### 5. 在 Web 中执行自定义仿真
+
+打开页面后：
+
+- 进入“自定义仿真”页签
+- 修改池子参数
+- 修改用户表
+- 修改事件表
+- 点击“运行自定义仿真”
+
+预期会看到和默认仿真相同的结果展示，但数据来自你手工输入的参数
+
+## 输出文件
+
+默认输出目录如下：
+
+- CSV 日志：`data/output/logs/simulation.csv`
+- JSON 摘要：`data/output/results/summary.json`
+- 价格图：`data/output/results/pool_spot_price.png`
+- 滑点图：`data/output/results/swap_slippage.png`
+- 用户收益图：`data/output/results/user_total_pnl.png`
+
+## 核心数学模型
+
+### 恒定乘积
+
+```text
+x * y = k
+```
+
+### 交易
+
+```text
 dx' = dx(1 - f)
 dy = y - k / (x + dx')
 ```
 
----
-
 ### 滑点
 
-```
+```text
 slippage = (P_theory - P_actual) / P_theory
 ```
 
----
-
 ### 无常损失
 
+```text
+IL(r) = 2*sqrt(r)/(1 + r) - 1
 ```
-IL(r) = 2√r / (1 + r) - 1
+
+## 项目测试步骤
+
+下面这组步骤按你当前环境可直接执行。
+
+### 1. 安装依赖
+
+```powershell
+D:\miniconda3\envs\jrrg\python.exe -m pip install -r requirements.txt
 ```
 
----
+### 2. 运行全部测试
 
-## 📜 设计原则
+```powershell
+D:\miniconda3\envs\jrrg\python.exe -m pytest -q
+```
 
-* 高内聚、低耦合
-* 模块化设计
-* 分层架构
-* 信息隐藏
-* 可扩展性与可维护性优先
+### 3. 运行单个模块测试
 
----
+池子核心逻辑：
 
-## 🧩 后续扩展方向
+```powershell
+D:\miniconda3\envs\jrrg\python.exe -m pytest tests/test_pool.py -q
+```
 
-* 多池系统（Multi Pool）
-* 套利机制模拟
-* Web前端交互
-* 实盘数据回测
-* 不同AMM模型对比（如恒定均值）
+流动性逻辑：
 
----
+```powershell
+D:\miniconda3\envs\jrrg\python.exe -m pytest tests/test_liquidity.py -q
+```
 
-## 👥 项目成员
+仿真流程：
 
-* 黄誉萱
-* 关翔文
-* 柏昕云
-* 戴铭隽
+```powershell
+D:\miniconda3\envs\jrrg\python.exe -m pytest tests/test_simulator.py -q
+```
 
----
+分析指标：
 
-## 📚 项目用途
+```powershell
+D:\miniconda3\envs\jrrg\python.exe -m pytest tests/test_analytics.py -q
+```
 
-本项目仅用于：
+可视化输出：
 
-* 课程设计
-* AMM机制学习
-* 仿真实验分析
+```powershell
+D:\miniconda3\envs\jrrg\python.exe -m pytest tests/test_visualization.py -q
+```
 
-不用于任何实际金融交易或商业用途。
+整体封装导出：
 
----
+```powershell
+D:\miniconda3\envs\jrrg\python.exe -m pytest tests/test_runner.py -q
+```
 
-## 📄 License
+### 4. 手动验收默认仿真
 
-MIT License（或课程要求指定License）
+执行：
+
+```powershell
+D:\miniconda3\envs\jrrg\python.exe main.py
+```
+
+然后在 CLI 中输入：
+
+```text
+1
+```
+
+你应当检查以下结果：
+
+- 控制台输出事件数、手续费、滑点、IL
+- `data/output/logs/simulation.csv` 已生成
+- `data/output/results/summary.json` 已生成
+- `data/output/results/` 下的三张 PNG 图已生成
+
+### 5. 手动验收 Streamlit 页面
+
+执行：
+
+```powershell
+D:\miniconda3\envs\jrrg\python.exe -m streamlit run streamlit_app.py
+```
+
+你应当检查以下结果：
+
+- 页面能正常打开
+- “默认配置”页签点击后能看到指标、表格和图表
+- “自定义仿真”页签能编辑用户和事件
+- 点击运行后能看到新的结果
+- 可以下载 CSV 和 JSON
+
+## 设计原则
+
+- 高内聚、低耦合
+- 分层清晰
+- 领域逻辑与导出逻辑分离
+- 应用流程统一封装
+- 便于扩展多场景和多模型
+
+## 项目用途
+
+本项目用于：
+
+- 课程设计
+- AMM 机制学习
+- 仿真实验分析
+
+不用于任何真实交易或金融建议场景。

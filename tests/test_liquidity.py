@@ -28,3 +28,4 @@ def test_engine_processes_liquidity_events() -> None:
 
     assert len(result.records) == 2
     assert result.pool.total_lp_shares >= 0
+    assert result.summary.liquidity_events == 2

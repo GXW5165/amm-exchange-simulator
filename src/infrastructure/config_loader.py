@@ -7,6 +7,8 @@ from typing import Any
 import yaml
 
 from src.domain.user import User
+from src.simulator.event import Event
+from src.simulator.scenario_builder import build_events
 
 
 @dataclass
@@ -16,8 +18,13 @@ class AppConfig:
     fee_rate: float = 0.003
     seed: int | None = None
     log_path: str = "data/output/logs/simulation.csv"
+    summary_path: str = "data/output/results/summary.json"
+    plot_dir: str = "data/output/results"
     users: dict[str, User] = field(default_factory=dict)
     events: list[dict[str, Any]] = field(default_factory=list)
+
+    def build_events(self) -> list[Event]:
+        return build_events(self.events)
 
 
 def load_config(path: str | Path) -> AppConfig:
@@ -39,6 +46,8 @@ def load_config(path: str | Path) -> AppConfig:
         fee_rate=float(data.get("fee_rate", 0.003)),
         seed=data.get("seed"),
         log_path=str(data.get("log_path", "data/output/logs/simulation.csv")),
+        summary_path=str(data.get("summary_path", "data/output/results/summary.json")),
+        plot_dir=str(data.get("plot_dir", "data/output/results")),
         users=users,
         events=list(data.get("events") or []),
     )
